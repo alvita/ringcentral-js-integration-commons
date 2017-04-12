@@ -109,6 +109,10 @@ export default class Environment extends RcModule {
     return this._globalStorage.getItem(this._serverStorageKey);
   }
 
+  get recordingHost() {
+    return this._globalStorage.getItem(this._recordingHostStoragekey);
+  }
+
   get enabled() {
     return this._globalStorage.getItem(this._enabledStorageKey);
   }
