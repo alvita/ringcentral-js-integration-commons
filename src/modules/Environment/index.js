@@ -4,6 +4,7 @@ import moduleStatuses from '../../enums/moduleStatuses';
 import actionTypes from './actionTypes';
 import getEnvironmentReducer, {
   getServerReducer,
+  getRecordingHostReducer,
   getEnabledReducer,
 } from './getEnvironmentReducer';
 
@@ -27,12 +28,20 @@ export default class Environment extends RcModule {
     this._sdkConfig = sdkConfig;
     this._reducer = getEnvironmentReducer(this.actionTypes);
     this._serverStorageKey = 'environmentServer';
+    this._recordingHostStoragekey = 'environmentRecordingHost';
     this._enabledStorageKey = 'environmentEnabled';
     this._globalStorage.registerReducer({
       key: this._serverStorageKey,
       reducer: getServerReducer({
         types: this.actionTypes,
         defaultServer: SDK.server.sandbox,
+      }),
+    });
+    this._globalStorage.registerReducer({
+      key: this._recordingHostStoragekey,
+      reducer: getRecordingHostReducer({
+        types: this.actionTypes,
+        defaultRecordingHost: '',
       }),
     });
     this._globalStorage.registerReducer({
@@ -72,16 +81,18 @@ export default class Environment extends RcModule {
     this._client.service = new SDK(newConfig);
   }
 
-  setData({ server, enabled }) {
+  setData({ server, recordingHost, enabled }) {
     const environmentChanged =
       this.enabled !== enabled ||
       (enabled && this.server !== server);
-    if (environmentChanged) {
+    if (environmentChanged) { // recordingHost changed no need to set to SDK
       this._changeEnvironment(enabled, server);
     }
+
     this.store.dispatch({
       type: this.actionTypes.setData,
       server,
+      recordingHost,
       enabled,
       environmentChanged,
     });
