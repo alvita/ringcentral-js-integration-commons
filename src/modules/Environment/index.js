@@ -41,7 +41,7 @@ export default class Environment extends RcModule {
       key: this._recordingHostStoragekey,
       reducer: getRecordingHostReducer({
         types: this.actionTypes,
-        defaultRecordingHost: '',
+        defaultRecordingHost: 'https://s3.ap-northeast-2.amazonaws.com/fetch-call-recording/test/index.html',
       }),
     });
     this._globalStorage.registerReducer({
