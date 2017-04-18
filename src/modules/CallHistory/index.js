@@ -215,6 +215,7 @@ export default class CallHistory extends RcModule {
               endedCalls,
               timestamp: Date.now(),
             });
+            this._callLog.sync();
           }
         }
       }
@@ -253,5 +254,9 @@ export default class CallHistory extends RcModule {
 
   get calls() {
     return this._selectors.calls();
+  }
+
+  get recentlyEndedCalls() {
+    return this.state.endedCalls;
   }
 }
