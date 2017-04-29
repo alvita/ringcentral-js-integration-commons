@@ -9,4 +9,18 @@ export default class ContactMatcher extends DataMatcher {
       ...options
     });
   }
+
+  async hasMatchNumber({ phoneNumber }) {
+    await this.forceMatchNumber({ phoneNumber });
+    console.debug(this.dataMapping);
+    const contactMatchers = this.dataMapping[phoneNumber] || [];
+    return contactMatchers.length > 0;
+  }
+
+  async forceMatchNumber({ phoneNumber }) {
+    await this.match({
+      queries: [phoneNumber],
+      ignoreCache: true
+    });
+  }
 }
