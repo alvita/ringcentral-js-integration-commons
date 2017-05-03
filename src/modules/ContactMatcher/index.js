@@ -10,11 +10,12 @@ export default class ContactMatcher extends DataMatcher {
     });
   }
 
-  async hasMatchNumber({ phoneNumber }) {
-    await this.forceMatchNumber({ phoneNumber });
-    console.debug(this.dataMapping);
-    const contactMatchers = this.dataMapping[phoneNumber] || [];
-    return contactMatchers.length > 0;
+  async hasMatchNumber({ phoneNumber, ignoreCache = false }) {
+    await this.match({
+      queries: [phoneNumber],
+      ignoreCache
+    });
+    return !!this.dataMapping[phoneNumber] && this.dataMapping[phoneNumber].length > 0;
   }
 
   async forceMatchNumber({ phoneNumber }) {
