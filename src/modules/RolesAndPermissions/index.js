@@ -14,6 +14,7 @@ function extractData(permissions) {
 
 export default class RolesAndPermissions extends DataFetcher {
   constructor({
+    isCRM,
     flag,
     client,
     alert,
@@ -31,6 +32,7 @@ export default class RolesAndPermissions extends DataFetcher {
       ),
       readyCheckFn: () => this._extensionInfo.ready,
     });
+    this._isCRM = !!isCRM;
     this._flag = flag || 'SalesForce';
     this._alert = alert;
     this._extensionInfo = extensionInfo;
@@ -45,6 +47,7 @@ export default class RolesAndPermissions extends DataFetcher {
     await super._onStateChange();
     if (this.ready &&
       this._auth.loginStatus === loginStatus.loggedIn &&
+      this._isCRM &&
       !this.tierEnabled
       ) {
       await this._auth.logout();
