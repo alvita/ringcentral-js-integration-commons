@@ -24,8 +24,7 @@ describe('AccountExtension Unit Test', () => {
       'addExtension',
       'deleteExtension',
       'fetchExtensionData',
-      '_subscriptionHandler',
-      '_fetchFn'
+      '_subscriptionHandleFn'
     ].forEach((key) => {
       accountExtension[key].restore();
     });
@@ -48,7 +47,7 @@ describe('AccountExtension Unit Test', () => {
     });
   });
 
-  describe('_subscriptionHandler', () => {
+  describe('_subscriptionHandleFn', () => {
     it('proccssExtension should not be called when message event is incorrect', async () => {
       const message = {
         event: 'abc',
@@ -57,7 +56,7 @@ describe('AccountExtension Unit Test', () => {
         }
       };
       sinon.stub(accountExtension, 'processExtension');
-      await accountExtension._subscriptionHandler(message);
+      await accountExtension._subscriptionHandleFn(message);
       sinon.assert.notCalled(accountExtension.processExtension);
     });
     it('proccssExtension should not be called when got no extensions', async () => {
@@ -66,7 +65,7 @@ describe('AccountExtension Unit Test', () => {
         body: {}
       };
       sinon.stub(accountExtension, 'processExtension');
-      await accountExtension._subscriptionHandler(message);
+      await accountExtension._subscriptionHandleFn(message);
       sinon.assert.notCalled(accountExtension.processExtension);
     });
     it('proccssExtension should be called twice when got two extensions', async () => {
@@ -77,7 +76,7 @@ describe('AccountExtension Unit Test', () => {
         }
       };
       sinon.stub(accountExtension, 'processExtension');
-      await accountExtension._subscriptionHandler(message);
+      await accountExtension._subscriptionHandleFn(message);
       sinon.assert.calledTwice(accountExtension.processExtension);
     });
   });
@@ -112,7 +111,7 @@ describe('AccountExtension Unit Test', () => {
       await accountExtension.processExtension(item);
       sinon.assert.called(accountExtension.deleteExtension);
     });
-    it('deleteExtension should be called when eventType is Update but the extension is not essential',async () => {
+    it('deleteExtension should be called when eventType is Update but the extension is not essential', async () => {
       const item = {
         id: 1,
         eventType: 'Update',
@@ -124,13 +123,13 @@ describe('AccountExtension Unit Test', () => {
       await accountExtension.processExtension(item);
       sinon.assert.called(accountExtension.deleteExtension);
     });
-    it('addExtension should be called when eventType is Create but the extension is not essential',async () => {
+    it('addExtension should be called when eventType is Create but the extension is not essential', async () => {
       const item = {
         id: 1,
         eventType: 'Create',
       };
       isEssential.callsFake(() => true);
-      sinon.stub(accountExtension, 'isAvailableExtension').callsFake(() => true);
+      sinon.stub(accountExtension, 'isAvailableExtension').callsFake(() => false);
 
       sinon.stub(accountExtension, 'addExtension');
       await accountExtension.processExtension(item);
@@ -142,7 +141,7 @@ describe('AccountExtension Unit Test', () => {
         eventType: 'Update',
       };
       isEssential.callsFake(() => true);
-      sinon.stub(accountExtension, 'isAvailableExtension').callsFake(() => true);
+      sinon.stub(accountExtension, 'isAvailableExtension').callsFake(() => false);
 
       sinon.stub(accountExtension, 'addExtension');
       await accountExtension.processExtension(item);

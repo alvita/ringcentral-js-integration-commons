@@ -32,9 +32,11 @@ export default class AccountExtension extends DataFetcher {
       getTimestampReducer,
       subscriptionFilters: [subscriptionFilters.accountExtension],
       subscriptionHandler: async (message) => {
-        this._subscriptionHandler(message);
+        this._subscriptionHandleFn(message);
       },
-      fetchFunction: async () => (this._fetchFn()),
+      fetchFunction: async () => (await fetchList(params => (
+        this._client.account().extension().list(params)
+      ))).filter(isEssential).map(simplifyExtensionData),
     });
 
     this.addSelector(
@@ -44,7 +46,7 @@ export default class AccountExtension extends DataFetcher {
     );
   }
 
-  async _subscriptionHandler(message) {
+  async _subscriptionHandleFn(message) {
     if (
       message &&
       extensionRegExp.test(message.event) &&
@@ -58,7 +60,8 @@ export default class AccountExtension extends DataFetcher {
   }
 
   async processExtension(item) {
-    const { id, eventType } = item;
+    const { extensionId, eventType } = item;
+    const id = parseInt(extensionId, 10);
     if (eventType === 'Delete') {
       this.deleteExtension(id);
     } else if (eventType === 'Create' || eventType === 'Update') {
@@ -66,7 +69,8 @@ export default class AccountExtension extends DataFetcher {
         const extensionData = await this.fetchExtensionData(id);
         const essential = isEssential(extensionData);
         const isAvailableExtension = this.isAvailableExtension(extensionData.extensionNumber);
-        if (essential && isAvailableExtension) {
+
+        if (essential && !isAvailableExtension) { // && !isAvailableExtension
           this.addExtension(extensionData);
         } else if (!essential && isAvailableExtension) {
           // if an extension was updated to be not essential anymore
@@ -98,13 +102,7 @@ export default class AccountExtension extends DataFetcher {
   }
 
   async fetchExtensionData(id) {
-    await this._client.account().extension(id).get();
-  }
-
-  async _fetchFn() {
-    (await fetchList(params => (
-        this._client.account().extension().list(params)
-      ))).filter(isEssential).map(simplifyExtensionData);
+    return this._client.account().extension(id).get();
   }
 
   get availableExtensions() {
