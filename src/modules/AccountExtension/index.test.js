@@ -3,7 +3,6 @@ import sinon from 'sinon';
 import { createStore } from 'redux';
 import AccountExtension from './index';
 import {
-  getTimestampReducer,
   getDataReducer,
 } from './getAccountExtensionReducer';
 import actionTypes from './actionTypes';
@@ -15,7 +14,7 @@ describe('AccountExtension Unit Test', () => {
 
   beforeEach(() => {
     accountExtension = sinon.createStubInstance(AccountExtension);
-    store = createStore(getTimestampReducer(actionTypes));
+    store = createStore(getDataReducer(actionTypes));
     accountExtension._store = store;
     accountExtension._actionTypes = actionTypes;
     [
@@ -99,7 +98,7 @@ describe('AccountExtension Unit Test', () => {
       accountExtension.processExtension(item);
       sinon.assert.calledOnce(accountExtension.deleteExtension);
     });
-    it('deleteExtension should be called when eventType is Create but the extension is not essential',async () => {
+    it('deleteExtension should be called when eventType is Create but the extension is not essential', async () => {
       const item = {
         id: 1,
         eventType: 'Create',
@@ -135,7 +134,7 @@ describe('AccountExtension Unit Test', () => {
       await accountExtension.processExtension(item);
       sinon.assert.called(accountExtension.addExtension);
     });
-    it('addExtension should be called when eventType is Update but the extension is not essential',async () => {
+    it('addExtension should be called when eventType is Update but the extension is not essential', async () => {
       const item = {
         id: 1,
         eventType: 'Update',
