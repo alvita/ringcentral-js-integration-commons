@@ -391,6 +391,7 @@ class DemoPhone extends RcModule {
       getState: () => this.state.contacts,
     }));
     this.addModule('conversationLogger', new ConversationLogger({
+      auth: this.auth,
       contactMatcher: this.contactMatcher,
       conversationMatcher: this.conversationMatcher,
       dateTimeFormat: this.dateTimeFormat,
