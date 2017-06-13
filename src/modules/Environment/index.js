@@ -84,12 +84,8 @@ export default class Environment extends RcModule {
     this._client.service = new SDK(newConfig);
   }
 
-<<<<<<< HEAD
-  setData({ server, recordingHost, enabled }) {
-=======
   @proxify
   async setData({ server, recordingHost, enabled }) {
->>>>>>> upstream/master
     const environmentChanged =
       this.enabled !== enabled ||
       (enabled && this.server !== server);
