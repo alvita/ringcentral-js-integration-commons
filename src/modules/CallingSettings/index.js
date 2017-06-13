@@ -4,12 +4,14 @@ import getCallingSettingsReducer, {
   getRingoutPromptReducer,
   getMyLocationReducer,
   getTimestampReducer,
+  getFromNumberReducer,
 } from './getCallingSettingsReducer';
 import moduleStatuses from '../../enums/moduleStatuses';
 import mapOptionToMode from './mapOptionToMode';
 import callingOptions from './callingOptions';
 import callingSettingsMessages from './callingSettingsMessages';
 import actionTypes from './actionTypes';
+import proxify from '../../lib/proxy/proxify';
 
 export default class CallingSettings extends RcModule {
   constructor({
@@ -22,6 +24,7 @@ export default class CallingSettings extends RcModule {
     rolesAndPermissions,
     tabManager,
     onFirstLogin,
+    webphone,
     ...options
   }) {
     super({
@@ -36,11 +39,13 @@ export default class CallingSettings extends RcModule {
     this._storage = storage;
     this._rolesAndPermissions = rolesAndPermissions;
     this._tabManager = tabManager;
+    this._webphone = webphone;
 
     this._callWithStorageKey = 'callingSettingsCallWith';
     this._ringoutPromptStorageKey = 'callingSettingsRingoutPrompt';
     this._myLocationStorageKey = 'callingSettingsMyLocation';
     this._timestampStorageKey = 'callingSettingsTimestamp';
+    this._fromNumberStorageKey = 'fromCallIdNumber';
 
     this._onFirstLogin = onFirstLogin;
 
@@ -59,6 +64,10 @@ export default class CallingSettings extends RcModule {
     this._storage.registerReducer({
       key: this._timestampStorageKey,
       reducer: getTimestampReducer(this.actionTypes),
+    });
+    this._storage.registerReducer({
+      key: this._fromNumberStorageKey,
+      reducer: getFromNumberReducer(this.actionTypes),
     });
     this._reducer = getCallingSettingsReducer(this.actionTypes);
 
@@ -94,11 +103,30 @@ export default class CallingSettings extends RcModule {
       }
     );
 
+    this.addSelector(
+      'fromNumbers',
+      () => this._extensionPhoneNumber.callerIdNumbers,
+      phoneNumbers => phoneNumbers.sort((firstItem, lastItem) => {
+        if (firstItem.usageType === 'DirectNumber') return -1;
+        else if (lastItem.usageType === 'DirectNumber') return 1;
+        else if (firstItem.usageType === 'MainCompanyNumber') return -1;
+        else if (lastItem.usageType === 'MainCompanyNumber') return 1;
+        else if (firstItem.usageType < lastItem.usageType) return -1;
+        else if (firstItem.usageType > lastItem.usageType) return 1;
+        return 0;
+      }),
+    );
+
     this.addSelector('callWithOptions',
       () => this._rolesAndPermissions.ringoutEnabled,
+      () => this._rolesAndPermissions.webphoneEnabled,
       () => this.otherPhoneNumbers.length > 0,
-      (ringoutEnabled, hasOtherPhone) => {
-        const callWithOptions = [callingOptions.softphone];
+      (ringoutEnabled, webphoneEnabled, hasOtherPhone) => {
+        const callWithOptions = [];
+        if (this._webphone && webphoneEnabled) {
+          callWithOptions.push(callingOptions.browser);
+        }
+        callWithOptions.push(callingOptions.softphone);
         if (ringoutEnabled) {
           callWithOptions.push(callingOptions.myphone);
           if (hasOtherPhone) {
@@ -132,13 +160,16 @@ export default class CallingSettings extends RcModule {
         this._myPhoneNumbers = this.myPhoneNumbers;
         this._otherPhoneNumbers = this.otherPhoneNumbers;
         this._ringoutEnabled = this._rolesAndPermissions.ringoutEnabled;
+        this._webphoneEnabled = this._rolesAndPermissions.webphoneEnabled;
         this.store.dispatch({
           type: this.actionTypes.init,
         });
         if (!this.timestamp) {
           // first time login
+          const defaultCallWith = this.callWithOptions && this.callWithOptions[0];
           this.store.dispatch({
             type: this.actionTypes.setData,
+            callWith: defaultCallWith,
             timestamp: Date.now(),
           });
           this._alert.warning({
@@ -150,7 +181,8 @@ export default class CallingSettings extends RcModule {
             this._onFirstLogin();
           }
         }
-        this._validateSettings();
+        await this._validateSettings();
+        await this._initFromNumber();
         this.store.dispatch({
           type: this.actionTypes.initSuccess,
         });
@@ -168,26 +200,68 @@ export default class CallingSettings extends RcModule {
       } else if (
         this.ready &&
         (this._ringoutEnabled !== this._rolesAndPermissions.ringoutEnabled ||
+          this._webphoneEnabled !== this._rolesAndPermissions.webphoneEnabled ||
           this._myPhoneNumbers !== this.myPhoneNumbers ||
           this._otherPhoneNumbers !== this.otherPhoneNumbers)
       ) {
         this._ringoutEnabled = this._rolesAndPermissions.ringoutEnabled;
+        this._webphoneEnabled = this._rolesAndPermissions.webphoneEnabled;
         this._myPhoneNumbers = this.myPhoneNumbers;
         this._otherPhoneNumbers = this.otherPhoneNumbers;
-        this._validateSettings();
+        await this._validateSettings();
       }
     });
   }
-  _validateSettings() {
+
+  @proxify
+  async _initFromNumber() {
+    const fromNumber = this.fromNumber;
+    if (!fromNumber) {
+      const fromNumberList = this.fromNumbers;
+      await this.updateFromNumber(fromNumberList[0]);
+    }
+  }
+
+  @proxify
+  async updateFromNumber(number) {
+    this.store.dispatch({
+      type: this.actionTypes.updateFromNumber,
+      number: number && number.phoneNumber,
+    });
+  }
+
+  @proxify
+  async _setSoftPhoneToCallWith() {
+    this.store.dispatch({
+      type: this.actionTypes.setData,
+      callWith: callingOptions.softphone,
+      timestamp: Date.now(),
+    });
+  }
+
+  @proxify
+  async _validateSettings() {
     if (
-      !this._ringoutEnabled &&
-      this.callWith !== callingOptions.softphone
+      !(
+        this._webphoneEnabled &&
+        this._webphone
+      ) &&
+      this.callWith === callingOptions.browser
     ) {
-      this.store.dispatch({
-        type: this.actionTypes.setData,
-        callWith: callingOptions.softphone,
-        timestamp: Date.now(),
+      await this._setSoftPhoneToCallWith();
+      this._alert.danger({
+        message: callingSettingsMessages.webphonePermissionRemoved,
+        ttl: 0,
       });
+    } else if (
+      !this._ringoutEnabled &&
+      (
+        this.callWith === callingOptions.myphone ||
+        this.callWith === callingOptions.otherphone ||
+        this.callWith === callingOptions.customphone
+      )
+    ) {
+      await this._setSoftPhoneToCallWith();
       this._alert.danger({
         message: callingSettingsMessages.permissionChanged,
         ttl: 0,
@@ -207,6 +281,14 @@ export default class CallingSettings extends RcModule {
       this._alert.danger({
         message: callingSettingsMessages.phoneNumberChanged,
         ttl: 0,
+      });
+    }
+  }
+  @proxify
+  async _warningEmergencyCallingNotAvailable() {
+    if (this.callWith === callingOptions.browser) {
+      this._alert.info({
+        message: callingSettingsMessages.emergencyCallingNotAvailable,
       });
     }
   }
@@ -255,7 +337,16 @@ export default class CallingSettings extends RcModule {
     return this._selectors.availableNumbers();
   }
 
-  setData({ callWith, myLocation, ringoutPrompt }, withPrompt) {
+  get fromNumber() {
+    return this._storage.getItem(this._fromNumberStorageKey);
+  }
+
+  get fromNumbers() {
+    return this._selectors.fromNumbers();
+  }
+
+  @proxify
+  async setData({ callWith, myLocation, ringoutPrompt }, withPrompt) {
     // TODO validate myLocation
     this.store.dispatch({
       type: this.actionTypes.setData,
@@ -273,6 +364,7 @@ export default class CallingSettings extends RcModule {
         this._alert.info({
           message: callingSettingsMessages.saveSuccess,
         });
+        this._warningEmergencyCallingNotAvailable();
       }
     }
   }

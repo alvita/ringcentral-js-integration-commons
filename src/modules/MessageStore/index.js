@@ -3,12 +3,14 @@ import moduleStatuses from '../../enums/moduleStatuses';
 
 import { batchPutApi } from '../../lib/batchApiHelper';
 
+import * as messageHelper from '../../lib/messageHelper';
 import * as messageStoreHelper from './messageStoreHelper';
 
 import actionTypes from './actionTypes';
 import getMessageStoreReducer from './getMessageStoreReducer';
 import getDataReducer from './getDataReducer';
 import sleep from '../../lib/sleep';
+import proxify from '../../lib/proxy/proxify';
 
 export function processResponseData(data) {
   const records = data.records.slice();
@@ -51,12 +53,44 @@ export default class MessageStore extends RcModule {
 
     this.addSelector(
       'unreadCounts',
-      () => this.conversations,
-      conversations =>
-        conversations.reduce((pre, cur) => (pre + cur.unreadCounts), 0),
+      () => this.allConversations,
+      (conversations) => {
+        let unreadCounts = 0;
+        conversations.forEach((conversation) => {
+          if (messageHelper.messageIsTextMessage(conversation)) {
+            unreadCounts += conversation.unreadCounts;
+          }
+        });
+        return unreadCounts;
+      }
     );
 
-    this.syncConversation = this.syncConversation.bind(this);
+    this.addSelector(
+      'textConversations',
+      () => this.allConversations,
+      conversations =>
+        conversations.filter(
+          conversation => messageHelper.messageIsTextMessage(conversation)
+        )
+    );
+
+    this.addSelector(
+      'faxMessages',
+      () => this.allConversations,
+      conversations =>
+        conversations.filter(
+          conversation => messageHelper.messageIsFax(conversation)
+        )
+    );
+
+    this.addSelector(
+      'voicemailMessages',
+      () => this.allConversations,
+      conversations =>
+        conversations.filter(
+          conversation => messageHelper.messageIsVoicemail(conversation)
+        )
+    );
   }
 
   initialize() {
@@ -150,26 +184,29 @@ export default class MessageStore extends RcModule {
   }
 
   async _messageSyncApi(params) {
-    const response = await this._client.account()
-                             .extension()
-                             .messageSync()
-                             .list(params);
+    const response = await this._client
+      .account()
+      .extension()
+      .messageSync()
+      .list(params);
     return response;
   }
   async _recursiveFSync({
     dateFrom,
-    dateTo,
-    recordCount = 250,
-    syncToken
+    dateTo = null,
+    syncToken,
+    recordsLength = 0,
   }) {
+    const MAX_MSG_LENGTH = 500;
     const params = messageStoreHelper.getMessageSyncParams({
       dateFrom,
       dateTo,
-      syncToken
+      syncToken,
     });
     const response = await this._messageSyncApi(params);
     const records = response.records;
-    if (records.length < recordCount) {
+    recordsLength += records.length;
+    if (recordsLength > MAX_MSG_LENGTH || !response.syncInfo.olderRecordsExist) {
       return {
         records,
         syncInfo: response.syncInfo
@@ -177,10 +214,11 @@ export default class MessageStore extends RcModule {
     }
     await sleep(1000);
     const _dateTo = new Date(response.records[response.records.length - 1].creationTime);
-    const lastResponse = this._recursiveFSync({
+    const lastResponse = await this._recursiveFSync({
       dateFrom,
       dateTo: _dateTo,
-      syncToken
+      syncToken,
+      recordsLength,
     });
     return {
       records: records.concat(lastResponse.records),
@@ -255,6 +293,7 @@ export default class MessageStore extends RcModule {
     });
   }
 
+  @proxify
   async syncConversation(id) {
     await this._sync(async () => {
       await this._updateConversationFromSync(id);
@@ -288,9 +327,9 @@ export default class MessageStore extends RcModule {
       readStatus: status,
     };
     const updateRequest = await this._client.account()
-                                            .extension()
-                                            .messageStore(messageId)
-                                            .put(body);
+      .extension()
+      .messageStore(messageId)
+      .put(body);
     return updateRequest;
   }
 
@@ -332,6 +371,7 @@ export default class MessageStore extends RcModule {
     return results;
   }
 
+  @proxify
   async readMessages(conversationId) {
     const conversation = this.conversationMap[conversationId];
     if (!conversation) {
@@ -365,7 +405,8 @@ export default class MessageStore extends RcModule {
     });
   }
 
-  updateConversationRecipientList(conversationId, recipients) {
+  @proxify
+  async updateConversationRecipientList(conversationId, recipients) {
     this.store.dispatch({
       type: this.actionTypes.updateConversationRecipients,
       conversationId,
@@ -373,7 +414,8 @@ export default class MessageStore extends RcModule {
     });
   }
 
-  pushMessages(records) {
+  @proxify
+  async pushMessages(records) {
     this.store.dispatch({
       type: this.actionTypes.updateMessages,
       records,
@@ -392,8 +434,20 @@ export default class MessageStore extends RcModule {
     return this.cache.data.messages;
   }
 
-  get conversations() {
+  get allConversations() {
     return this.cache.data.conversations;
+  }
+
+  get voicemailMessages() {
+    return this._selectors.voicemailMessages();
+  }
+
+  get faxMessages() {
+    return this._selectors.faxMessages();
+  }
+
+  get conversations() {
+    return this._selectors.textConversations();
   }
 
   get conversationMap() {

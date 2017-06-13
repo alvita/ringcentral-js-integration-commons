@@ -1,9 +1,10 @@
 import Enum from '../../lib/Enum';
+import moduleActionTypes from '../../enums/moduleActionTypes';
 
 export default new Enum([
-  'initSuccess',
-  'resetSuccess',
+  ...Object.keys(moduleActionTypes),
   'toNumberChanged',
+  'updateFromNumber',
   'connect',
   'connectSuccess',
   'connectError',

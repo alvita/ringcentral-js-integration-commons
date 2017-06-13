@@ -5,6 +5,7 @@ import moduleStatuses from '../../enums/moduleStatuses';
 import baseActionTypes from './baseActionTypes';
 import getDefaultReducer from './getDefaultReducer';
 import getDefaultDataReducer from './getDefaultDataReducer';
+import proxify from '../../lib/proxy/proxify';
 
 export function checkName(name) {
   if (!name) {
@@ -13,10 +14,6 @@ export function checkName(name) {
   if (typeof name !== 'string') {
     throw new Error('DataMatcher: "name" must be a string.');
   }
-}
-
-export function getQueryKey(name, query) {
-  return `${name}-${query}`;
 }
 
 const DEFAULT_TTL = 30 * 1000;
@@ -43,6 +40,7 @@ export default class DataMatcher extends RcModule {
     this._querySources = new Map();
     this._searchProviders = new Map();
     this._matchPromises = new Map();
+    this._matchQueues = new Map();
     this._storage = storage;
     this._ttl = ttl;
     this._noMatchTtl = noMatchTtl;
@@ -92,7 +90,7 @@ export default class DataMatcher extends RcModule {
         return dataMap;
       }
     );
-    this._requestCounter = 0;
+    this._lastCleanUp = 0;
   }
 
   initialize() {
@@ -110,12 +108,17 @@ export default class DataMatcher extends RcModule {
     return [...output];
   }
   _cleanUp() {
-    this.store.dispatch({
-      type: this.actionTypes.cleanUp,
-      queries: this._getQueries(),
-      timestamp: Date.now(),
-      ttl: this._ttl,
-    });
+    // throttle clean up to only run once every 100ms
+    const now = Date.now();
+    if (now - this._lastCleanUp > 100) {
+      this._lastCleanUp = now;
+      this.store.dispatch({
+        type: this.actionTypes.cleanUp,
+        queries: this._getQueries(),
+        timestamp: Date.now(),
+        ttl: this._ttl,
+      });
+    }
   }
   _onStateChange() {
     if (this._shouldInit()) {
@@ -130,6 +133,7 @@ export default class DataMatcher extends RcModule {
       this.store.dispatch({
         type: this.actionTypes.reset,
       });
+      this._lastCleanUp = 0;
       this.store.dispatch({
         type: this.actionTypes.resetSuccess,
       });
@@ -204,6 +208,8 @@ export default class DataMatcher extends RcModule {
     }
     this._querySources.set(getQueriesFn, readyCheckFn);
   }
+
+  @proxify
   async triggerMatch() {
     if (this.ready) {
       this._cleanUp();
@@ -213,6 +219,7 @@ export default class DataMatcher extends RcModule {
     }
   }
 
+  @proxify
   async match({
     queries,
     ignoreCache = false
@@ -226,12 +233,11 @@ export default class DataMatcher extends RcModule {
         })
       )));
   }
+
   async _fetchMatchResult({
     name,
     queries,
   }) {
-    const requestId = this._requestCounter;
-    this._requestCounter += 1;
     try {
       this.store.dispatch({
         type: this.actionTypes.match,
@@ -248,25 +254,13 @@ export default class DataMatcher extends RcModule {
         .searchFn({
           queries,
         });
-      queries.forEach((query) => {
-        // cache the promise
-        const queryKey = getQueryKey(name, query);
-        this._matchPromises.set(queryKey, {
-          promise,
-          requestId,
-        });
+      this._matchPromises.set(name, {
+        promise,
+        queries,
       });
       const data = await promise;
-      queries.forEach((query) => {
-        // clear the cached promise
-        const queryKey = getQueryKey(name, query);
-        if (
-          this._matchPromises.get(queryKey) &&
-          this._matchPromises.get(queryKey).requestId === requestId
-        ) {
-          this._matchPromises.delete(queryKey);
-        }
-      });
+      this._matchPromises.delete(name);
+
       this.store.dispatch({
         type: this.actionTypes.matchSuccess,
         name,
@@ -275,16 +269,7 @@ export default class DataMatcher extends RcModule {
         timestamp: Date.now(),
       });
     } catch (error) {
-      queries.forEach((query) => {
-        // clear the cached promise
-        const queryKey = getQueryKey(name, query);
-        if (
-          this._matchPromises.get(queryKey) &&
-          this._matchPromises.get(queryKey).requestId === requestId
-        ) {
-          this._matchPromises.delete(queryKey);
-        }
-      });
+      this._matchPromises.delete(name);
       this.store.dispatch({
         type: this.actionTypes.matchError,
         name,
@@ -295,38 +280,72 @@ export default class DataMatcher extends RcModule {
       throw error;
     }
   }
+
+  @proxify
   async _matchSource({
     name,
     queries,
     ignoreCache
   }) {
     const now = Date.now();
+    const queuedItems = {};
     const promises = [];
-    const filteredQueries = [];
-    const data = this.data;
-    queries.forEach((query) => {
-      const queryKey = getQueryKey(name, query);
-      if (this._matchPromises.has(queryKey)) {
-        promises.push(this._matchPromises.get(queryKey));
-      } else if (
-        ignoreCache ||
-        !data[query] ||
-        !data[query][name] ||
-        now - data[query][name]._t > this._noMatchTtl
-      ) {
-        filteredQueries.push(query);
-      }
-    });
-    if (filteredQueries.length) {
-      promises.push(this._fetchMatchResult({
-        name,
-        queries,
-      }));
+    let queue;
+    let matching;
+    if (this._matchPromises.has(name)) {
+      matching = this._matchPromises.get(name);
+      promises.push(matching.promise);
+      matching.queries.forEach((item) => {
+        queuedItems[item] = true;
+      });
     }
 
-    if (promises.length) {
-      await Promise.all(promises);
+    if (this._matchQueues.has(name)) {
+      queue = this._matchQueues.get(name);
+      promises.push(queue.promise);
+      queue.queries.forEach((item) => {
+        queuedItems[item] = true;
+      });
     }
+    const data = this.data;
+    const filteredQueries = ignoreCache ?
+      queries :
+      queries.filter(query => (
+        !queuedItems[query] &&
+        (
+          !data[query] ||
+          !data[query][name] ||
+          now - data[query][name]._t > this._noMatchTtl
+        )
+      ));
+
+    if (filteredQueries.length) {
+      if (!matching) {
+        matching = this._fetchMatchResult({
+          name,
+          queries: filteredQueries,
+        });
+        promises.push(matching);
+      } else if (!queue) {
+        queue = {
+          queries: filteredQueries,
+        };
+        queue.promise = (async () => {
+          await matching.promise;
+          const promise = this._fetchMatchResult({
+            name,
+            queries: queue.queries,
+          });
+          this._matchQueues.delete(name);
+          await promise;
+        })();
+        this._matchQueues.set(name, queue);
+        promises.push(queue.promise);
+      } else {
+        queue.queries = queue.queries.concat(filteredQueries);
+      }
+    }
+    await Promise.all(promises);
   }
 
   get status() {

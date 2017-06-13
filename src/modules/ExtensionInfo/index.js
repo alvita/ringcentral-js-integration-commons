@@ -10,6 +10,7 @@ const DEFAULT_MASK = [
   'status',
   'permissions',
   'profileImage',
+  'departments',
   `regionalSettings(${[
     'timezone(id,name,bias)',
     'homeCountry(id,isoCode,callingCode)',
@@ -51,10 +52,13 @@ export default class ExtensionInfo extends DataFetcher {
       fetchFunction: async () => extractData(await this._client.account().extension().get()),
       ...options
     });
-    this.addSelector(
-      'info',
+    this.addSelector('info',
       () => this.data,
-      data => data || {},
+      data => (data || {}),
+    );
+    this.addSelector('serviceFeatures',
+      this._selectors.info,
+      info => (info.serviceFeatures || {}),
     );
   }
 
@@ -72,11 +76,19 @@ export default class ExtensionInfo extends DataFetcher {
   }
 
   get serviceFeatures() {
-    return this.info.serviceFeatures;
+    return this._selectors.serviceFeatures();
   }
 
   get country() {
     return (this.info.regionalSettings && this.info.regionalSettings.homeCountry) ||
       DEFAULT_COUNTRY;
+  }
+
+  get departments() {
+    return this.info.departments;
+  }
+
+  get isCallQueueMember() {
+    return !!this.departments;
   }
 }

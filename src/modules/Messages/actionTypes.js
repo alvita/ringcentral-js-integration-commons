@@ -1,15 +1,12 @@
 import Enum from '../../lib/Enum';
+import moduleActionTypes from '../../enums/moduleActionTypes';
 
 export default new Enum([
-  'init',
-  'initSuccess',
-  'reset',
-  'resetSuccess',
-  'updateMessages',
-  'pushMessages',
+  ...Object.keys(moduleActionTypes),
   'search',
   'nextPage',
-  'resetPage',
-  'updateSearchingString',
-  'updateSearchResults',
+  'previousPage',
+  'setPage',
+  'setPerPage',
+  'updateSearchInput',
 ], 'messages');

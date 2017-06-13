@@ -71,7 +71,7 @@ describe('MessageStore:: Helper :: getMessageSyncParams', () => {
   it('should return syncToken and syncType is ISync when syncToken exist', () => {
     const result = messageStoreHelper.getMessageSyncParams({});
     expect(result.syncType).to.equal('FSync');
-    expect(Object.keys(result)).to.deep.equal(['syncType', 'dateFrom', 'dateTo', 'recordCount']);
+    expect(Object.keys(result)).to.deep.equal(['syncType', 'dateFrom']);
   });
 
   it('should return params with conversationId when conversationId exist', () => {
@@ -82,8 +82,6 @@ describe('MessageStore:: Helper :: getMessageSyncParams', () => {
     expect(Object.keys(result)).to.deep.equal([
       'syncType',
       'dateFrom',
-      'dateTo',
-      'recordCount',
       'conversationId'
     ]);
   });
@@ -292,7 +290,7 @@ describe('MessageStore:: Helper :: findIndexOfConversations', () => {
       unreadMessages: {},
     };
     const record = {
-      conversation: { id: '123456' },
+      conversationId: '123456',
     };
     const result = messageStoreHelper.findIndexOfConversations(conversationMap, record);
     expect(result).to.equal(1);
@@ -301,7 +299,7 @@ describe('MessageStore:: Helper :: findIndexOfConversations', () => {
   it('should return -1 if record is not found', () => {
     const conversationMap = {};
     const record = {
-      conversation: { id: '123456' },
+      conversationId: '123456',
     };
     const result = messageStoreHelper.findIndexOfConversations(conversationMap, record);
     expect(result).to.equal(-1);
@@ -417,6 +415,7 @@ describe('MessageStore:: Helper :: pushRecordsToMessageData', () => {
       conversation: {
         id: '1234567890'
       },
+      conversationId: '1234567890',
       type: 'SMS',
       subject: 'test1',
       availability: 'Alive',

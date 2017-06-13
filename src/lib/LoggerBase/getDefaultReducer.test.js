@@ -17,58 +17,40 @@ describe('getLoggingListReducer', () => {
       expect(reducer(undefined, { action: 'foo' }))
         .to.deep.equal([]);
     });
-    it('should add { name, id } to state on log', () => {
-      const name = 'foo';
+    it('should add action.id to state on log', () => {
       const id = 'bar';
       expect(reducer([], {
         type: actionTypes.log,
-        name,
         id,
-      })).to.deep.equal([{
-        name,
-        id,
-      }]);
+      })).to.deep.equal([id]);
     });
     it('should not add duplicate entries on log', () => {
-      const name = 'foo';
       const id = 'bar';
-      expect(reducer([{
-        name,
+      expect(reducer([id], {
+        type: actionTypes.log,
         id,
-      }], {
-          type: actionTypes.log,
-          name,
-          id,
-        })).to.deep.equal([{
-          name,
-          id,
-        }]);
+      })).to.deep.equal([id]);
     });
     it('should remove item from state on logSuccess', () => {
-      const name = 'foo';
       const id = 'bar';
-      expect(reducer([{
-        name,
+      const otherId = 'baz';
+      expect(reducer([id, otherId], {
+        type: actionTypes.logSuccess,
         id,
-      }], {
-          type: actionTypes.logSuccess,
-          name,
-          id,
-        })).to.deep.equal([]);
+      })).to.deep.equal([otherId]);
     });
     it('should remove item from state on logError', () => {
-      const name = 'foo';
       const id = 'bar';
+      const otherId = 'baz';
       expect(
         reducer(
-          [{
-            name,
+          [
             id,
-          }], {
+            otherId,
+          ], {
             type: actionTypes.logSuccess,
-            name,
             id,
-          })).to.deep.equal([]);
+          })).to.deep.equal([otherId]);
     });
     it('should return originalState on other action types', () => {
       const originalState = [];
