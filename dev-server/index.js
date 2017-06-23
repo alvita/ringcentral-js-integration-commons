@@ -7,12 +7,14 @@ import { connect, Provider } from 'react-redux';
 import JSONTree from 'react-json-tree';
 
 import RcModule from '../src/lib/RcModule';
+import { Segment } from '../src/lib/Analytics';
 
 import AccountExtension from '../src/modules/AccountExtension';
 import AccountInfo from '../src/modules/AccountInfo';
 import ActiveCalls from '../src/modules/ActiveCalls';
 import Alert from '../src/modules/Alert';
 import Auth from '../src/modules/Auth';
+import Analytics from '../src/modules/Analytics';
 import BlockedNumber from '../src/modules/BlockedNumber';
 import Brand from '../src/modules/Brand';
 import Call from '../src/modules/Call';
@@ -419,12 +421,21 @@ class DemoPhone extends RcModule {
       conversationLogger: this.conversationLogger,
       getState: () => this.state.messages,
     }));
+
+    this.addModule('analytics', new Analytics({
+      auth: this.auth,
+      initAnalytics: Segment,
+      analyticsKey: 'd51li7ZONOLUcHKBqVmQmhG2mF0FySUZ', // TODO: move to config
+      getState: () => this.state.analytics,
+    }));
+
     this._reducer = combineReducers({
       accountInfo: this.accountInfo.reducer,
       accountExtension: this.accountExtension.reducer,
       activeCalls: this.activeCalls.reducer,
       alert: this.alert.reducer,
       auth: this.auth.reducer,
+      analytics: this.analytics.reducer,
       blockedNumber: this.blockedNumber.reducer,
       call: this.call.reducer,
       callHistory: this.callHistory.reducer,
