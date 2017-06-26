@@ -424,8 +424,7 @@ class DemoPhone extends RcModule {
 
     this.addModule('analytics', new Analytics({
       auth: this.auth,
-      initAnalytics: Segment,
-      analyticsKey: 'd51li7ZONOLUcHKBqVmQmhG2mF0FySUZ', // TODO: move to config
+      // analytics: window.analytics,
       getState: () => this.state.analytics,
     }));
 

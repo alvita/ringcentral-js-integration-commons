@@ -6,8 +6,7 @@ import getAnalyticsReducer from './getAnalyticsReducer';
 export default class Analytics extends RcModule {
   constructor({
     auth,
-    initAnalytics,
-    analyticsKey,
+    // analytics,
     // appName,
     ...options
   }) {
@@ -15,9 +14,7 @@ export default class Analytics extends RcModule {
       ...options,
       actionTypes
     });
-    // this._initAnalytics = initAnalytics;
-    this._analytics = initAnalytics();
-    this._analyticsKey = analyticsKey;
+    this._analytics = null;
     this._auth = auth;
     this._reducer = getAnalyticsReducer(this.actionTypes);
   }
@@ -25,30 +22,55 @@ export default class Analytics extends RcModule {
   initialize() {
     // this._analytics = !this._analytics || this._initAnalytics();
     console.debug('analytics initialize...', this._analytics);
-    this._analytics.load(this._analyticsKey);
-    this._analytics.page();
+    // if (this._analytics.initialize) {
+    //   this.track();
+    // }
     this.store.subscribe(() => this._onStateChange());
   }
 
-  track() {
-    const result = this._analytics.track('Clicked CTA', {
-      location: 'header',
-      type: 'button'
+  identify({
+    userId,
+    name,
+  }) {
+    this._analytics.identify(userId, {
+      name
     });
+  }
+
+  track({
+    event,
+    properties
+  }) {
+    const result = this._analytics.track(event, properties);
     console.log(result);
+  }
+
+  trackNavigation({ router }) {
+    this.track('Navigator Clicked', {
+      router
+    });
   }
 
   async _onStateChange() {
     if (this._shouldInit()) {
+      this._analytics = window.analytics;
       this._initModuleStatus();
-    } // else if (this._shouldReset()) {
-      // this._resetModuleStatus();
-    // }
+      if (this._auth.loggedIn && this._auth.isFreshLogin) {
+        this.identify({
+          userId: this._auth.ownerId
+        });
+        this.track({
+          event: 'Authentication'
+        });
+      }
+    } else if (this._shouldReset()) {
+      this._resetModuleStatus();
+    }
   }
 
   _shouldInit() {
     return (
-      // this._analytics.initialized &&
+      window.analytics.initialized &&
       this._auth.ready &&
       this.pending
     );
