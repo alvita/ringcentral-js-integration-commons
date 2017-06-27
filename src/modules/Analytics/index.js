@@ -3,28 +3,38 @@ import moduleStatuses from '../../enums/moduleStatuses';
 import actionTypes from './actionTypes';
 import getAnalyticsReducer from './getAnalyticsReducer';
 
+import { Segment } from '../../lib/Analytics';
+
+
 export default class Analytics extends RcModule {
   constructor({
     auth,
-    // analytics,
-    // appName,
+    call,
+    webphone,
+    contacts,
+    messageSender,
+    analyticsKey,
+    appName,
     ...options
   }) {
     super({
       ...options,
       actionTypes
     });
-    this._analytics = null;
     this._auth = auth;
+    this._call = call;
+    this._webphone = webphone;
+    this._contacts = contacts;
+    this._messageSender = messageSender;
+    this._analyticsKey = analyticsKey;
+    this._appName = appName;
     this._reducer = getAnalyticsReducer(this.actionTypes);
+    this._segment = Segment();
+    this._segment.load(this._analyticsKey);
+    this._segment.page();
   }
 
   initialize() {
-    // this._analytics = !this._analytics || this._initAnalytics();
-    console.debug('analytics initialize...', this._analytics);
-    // if (this._analytics.initialize) {
-    //   this.track();
-    // }
     this.store.subscribe(() => this._onStateChange());
   }
 
@@ -32,7 +42,7 @@ export default class Analytics extends RcModule {
     userId,
     name,
   }) {
-    this._analytics.identify(userId, {
+    global.analytics.identify(userId, {
       name
     });
   }
@@ -41,7 +51,11 @@ export default class Analytics extends RcModule {
     event,
     properties
   }) {
-    const result = this._analytics.track(event, properties);
+    const trackProps = {
+      appName: this._appName,
+      ...properties,
+    };
+    const result = global.analytics.track(event, trackProps);
     console.log(result);
   }
 
@@ -52,64 +66,100 @@ export default class Analytics extends RcModule {
   }
 
   async _onStateChange() {
-    if (this._shouldInit()) {
-      this._analytics = window.analytics;
-      this._initModuleStatus();
-      if (this._auth.loggedIn && this._auth.isFreshLogin) {
-        this.identify({
-          userId: this._auth.ownerId
+    console.debug('in analytics', this.lastActions);
+    if (this.ready) {
+      this.lastActions.forEach((action) => {
+        [
+          '_authentication',
+          '_logout',
+          '_callAttempt',
+          '_callConnected',
+          '_smsAttempt',
+          '_smsSent',
+        ].forEach((key) => {
+          this[key](action.type);
         });
-        this.track({
-          event: 'Authentication'
+        // this._authentication(action.type);
+        // this._callAttempt(action.type);
+        // this._callConnected(action.type);
+      });
+      if (this.lastActions.length !== 0) {
+        this.store.dispatch({
+          type: this.actionTypes.clear,
         });
       }
-    } else if (this._shouldReset()) {
-      this._resetModuleStatus();
     }
   }
 
-  _shouldInit() {
-    return (
-      window.analytics.initialized &&
-      this._auth.ready &&
-      this.pending
-    );
+  _authentication(actionType) {
+    if (this._auth && this._auth.actionTypes.loginSuccess === actionType) {
+      this.identify({
+        userId: this._auth.ownerId,
+      });
+      this.track({
+        event: 'Authentication',
+      });
+    }
   }
 
-  _shouldReset() {
-    return (
-      !this._auth.loggedIn && // loggedIn or beforeLogout
-      this.ready
-    );
+  _logout(actionType) {
+    if (this._auth && this._auth.actionTypes.logout === actionType) {
+      this.track({
+        event: 'Logout',
+      });
+    }
   }
 
-  _initModuleStatus() {
-    this.store.dispatch({
-      type: this.actionTypes.init,
-    });
-    this.store.dispatch({
-      type: this.actionTypes.initSuccess,
-    });
+  _callAttempt(actionType) {
+    if (this._call && this._call.actionTypes.connect === actionType) {
+      this.track({
+        event: 'Call Attempt',
+      });
+    }
   }
 
-  _resetModuleStatus() {
-    this.store.dispatch({
-      type: this.actionTypes.reset,
-    });
-    this.store.dispatch({
-      type: this.actionTypes.resetSuccess,
-    });
+  // webRTC
+  _callConnected(actionType) {
+    if (this._webphone && this._webphone.actionTypes.connect === actionType) {
+      this.track({
+        event: 'Call Connected',
+      });
+    }
+  }
+
+  _smsAttempt(actionType) {
+    if (this._messageSender && this.messageSender.actionTypes.send === actionType) {
+      this.track({
+        event: 'SMS Attempt',
+      });
+    }
+  }
+
+  _smsSent(actionType) {
+    if (this._messageSender && this.messageSender.actionTypes.sendOver === actionType) {
+      this.track({
+        event: 'SMS Sent',
+      });
+    }
+  }
+
+  get analytics() {
+    return global.analytics;
+  }
+
+  get lastActions() {
+    return this.state.lastAction;
   }
 
   get status() {
-    return this.state.status;
+    return moduleStatuses.ready;
   }
 
   get ready() {
-    return this.state.status === moduleStatuses.ready;
+    return true;
   }
 
   get pending() {
-    return this.state.status === moduleStatuses.pending;
+    return false;
   }
 }
