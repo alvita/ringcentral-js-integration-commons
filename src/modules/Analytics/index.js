@@ -13,8 +13,12 @@ export default class Analytics extends RcModule {
     webphone,
     contacts,
     messageSender,
+    adapter,
+    router,
     analyticsKey,
     appName,
+    appVersion,
+    brandCode,
     ...options
   }) {
     super({
@@ -26,8 +30,10 @@ export default class Analytics extends RcModule {
     this._webphone = webphone;
     this._contacts = contacts;
     this._messageSender = messageSender;
-    this._analyticsKey = analyticsKey;
-    this._appName = appName;
+    this._adapter = adapter;
+    this._router = router;
+    this._appVersion = appVersion;
+    this._brandCode = brandCode;
     this._reducer = getAnalyticsReducer(this.actionTypes);
     this._segment = Segment();
     this._segment.load(this._analyticsKey);
@@ -53,15 +59,23 @@ export default class Analytics extends RcModule {
   }) {
     const trackProps = {
       appName: this._appName,
+      appVersion: this._appVersion,
+      brand: this._brandCode,
       ...properties,
     };
     const result = global.analytics.track(event, trackProps);
     console.log(result);
   }
 
-  trackNavigation({ router }) {
-    this.track('Navigator Clicked', {
-      router
+  trackNavigation({ router, eventPostfix }) {
+    const trackProps = {
+      router,
+      appName: this._appName,
+      appVersion: this._appVersion,
+      brand: this._brandCode,
+    };
+    this.track(`Navigator Clicked (${eventPostfix})`, {
+      trackProps
     });
   }
 
@@ -74,14 +88,20 @@ export default class Analytics extends RcModule {
           '_logout',
           '_callAttempt',
           '_callConnected',
+          '_webRTCRegistration',
           '_smsAttempt',
           '_smsSent',
+          '_logCall',
+          '_logSMS',
+          '_clickToDial',
+          '_clickToSMS',
+          '_viewEntity',
+          '_createEntity',
+          '_editCallLog',
+          '_editSMSLog',
         ].forEach((key) => {
           this[key](action.type);
         });
-        // this._authentication(action.type);
-        // this._callAttempt(action.type);
-        // this._callConnected(action.type);
       });
       if (this.lastActions.length !== 0) {
         this.store.dispatch({
@@ -118,17 +138,24 @@ export default class Analytics extends RcModule {
     }
   }
 
-  // webRTC
   _callConnected(actionType) {
-    if (this._webphone && this._webphone.actionTypes.connect === actionType) {
+    if (this._call && this._call.actionTypes.connectSuccess === actionType) {
       this.track({
-        event: 'Call Connected',
+        event: 'Outbound Call Connected',
+      });
+    }
+  }
+
+  _webRTCRegistration(actionType) {
+    if (this._webphone && this._webphone.actionTypes.registered === actionType) {
+      this.track({
+        event: 'WebRTC registration',
       });
     }
   }
 
   _smsAttempt(actionType) {
-    if (this._messageSender && this.messageSender.actionTypes.send === actionType) {
+    if (this._messageSender && this._messageSender.actionTypes.send === actionType) {
       this.track({
         event: 'SMS Attempt',
       });
@@ -136,11 +163,113 @@ export default class Analytics extends RcModule {
   }
 
   _smsSent(actionType) {
-    if (this._messageSender && this.messageSender.actionTypes.sendOver === actionType) {
+    if (this._messageSender && this._messageSender.actionTypes.sendOver === actionType) {
       this.track({
         event: 'SMS Sent',
       });
     }
+  }
+
+  _logCall(actionType) {
+    if (this._adapter && this._adapter.actionTypes.createCallLog === actionType) {
+      this.track({
+        event: 'Log Call'
+      });
+    }
+  }
+
+  _logSMS(actionType) {
+    if (this._adapter && this._adapter.actionTypes.createSMSLog === actionType) {
+      this.track({
+        event: 'Log SMS'
+      });
+    }
+  }
+
+  _clickToDial(actionType) {
+    if (this._adapter && this._adapter.actionTypes.clickToDial === actionType) {
+      this.track({
+        event: 'Click To Dial'
+      });
+    }
+  }
+
+  _clickToSMS(actionType) {
+    if (this._adapter && this._adapter.actionTypes.clickToSMS === actionType) {
+      this.track({
+        event: 'Click To SMS'
+      });
+    }
+  }
+
+  _viewEntity(actionType) {
+    if (this._adapter && this._adapter.actionTypes.viewEntity === actionType) {
+      this.track({
+        event: 'View Entity Details'
+      });
+    }
+  }
+
+  _createEntity(actionType) {
+    if (this._adapter && this._adapter.actionTypes.createEntity === actionType) {
+      this.track({
+        event: 'Add Entity'
+      });
+    }
+  }
+
+  _editCallLog(actionType) {
+    if (this._adapter && this._adapter.actionTypes.editCallLog === actionType) {
+      this.track({
+        event: 'Edit Call Log'
+      });
+    }
+  }
+
+  _editSMSLog(actionType) {
+    if (this._adapter && this._adapter.actionTypes.editSMSLog === actionType) {
+      this.track({
+        event: 'Edit SMS Log'
+      });
+    }
+  }
+
+  _navigate(action) {
+    if (this._router && this._router.locationChange === action.type) {
+      const path = action.payload && action.payload.pathname;
+      const target = this._getTrackTarget(path);
+      if (target) {
+        this.trackNavigation({
+          ...target
+        });
+      }
+    }
+  }
+
+  _getTrackTarget(path) {
+    if (path) {
+      const targets = [{
+        eventPostfix: 'Dialer',
+        router: '/',
+      }, {
+        eventPostfix: 'Compose SMS',
+        router: '/composeText',
+      }, {
+        eventPostfix: 'Messages',
+        router: '/messages',
+      }, {
+        eventPostfix: 'Conversation',
+        router: '/conversation/',
+      }, {
+        eventPostfix: 'Call History',
+        router: '/history',
+      }, {
+        eventPostfix: 'Settings',
+        router: '/settings',
+      }];
+      return targets.find(target => path.indexOf(target.router) !== -1);
+    }
+    return undefined;
   }
 
   get analytics() {
