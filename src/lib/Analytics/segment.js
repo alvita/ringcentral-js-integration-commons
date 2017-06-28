@@ -49,11 +49,7 @@ export default function init() {
       analytics.methods.forEach(function(method) {
         analytics[method] = analytics.factory(method);
       });
-      // For each of our methods, generate a queueing stub.
-      // for (let i = 0; i < analytics.methods.length; i = i + 1) {
-      //   const key = analytics.methods[i];
-      //   analytics[key] = analytics.factory(key);
-      // }
+
       analytics.load = function(key) {
         if (document !== undefined) {
           const script = document.createElement('script');

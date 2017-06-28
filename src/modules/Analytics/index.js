@@ -32,6 +32,8 @@ export default class Analytics extends RcModule {
     this._messageSender = messageSender;
     this._adapter = adapter;
     this._router = router;
+    this._analyticsKey = analyticsKey;
+    this._appName = appName;
     this._appVersion = appVersion;
     this._brandCode = brandCode;
     this._reducer = getAnalyticsReducer(this.actionTypes);
@@ -53,9 +55,8 @@ export default class Analytics extends RcModule {
     });
   }
 
-  track({
-    event,
-    properties
+  track(event, {
+    ...properties
   }) {
     const trackProps = {
       appName: this._appName,
@@ -73,9 +74,7 @@ export default class Analytics extends RcModule {
       appVersion: this._appVersion,
       brand: this._brandCode,
     };
-    this.track(`Navigator Clicked (${eventPostfix})`, {
-      trackProps
-    });
+    this.track(`Navigator Clicked (${eventPostfix})`, trackProps);
   }
 
   async _onStateChange() {
@@ -99,7 +98,7 @@ export default class Analytics extends RcModule {
           '_editSMSLog',
           '_navigate',
         ].forEach((key) => {
-          this[key](action.type);
+          this[key](action);
         });
       });
       if (this.lastActions.length !== 0) {
@@ -110,126 +109,98 @@ export default class Analytics extends RcModule {
     }
   }
 
-  _authentication(actionType) {
-    if (this._auth && this._auth.actionTypes.loginSuccess === actionType) {
+  _authentication(action) {
+    if (this._auth && this._auth.actionTypes.loginSuccess === action.type) {
       this.identify({
         userId: this._auth.ownerId,
       });
-      this.track({
-        event: 'Authentication',
+      this.track('Authentication');
+    }
+  }
+
+  _logout(action) {
+    if (this._auth && this._auth.actionTypes.logout === action.type) {
+      this.track('Logout');
+    }
+  }
+
+  _callAttempt(action) {
+    if (this._call && this._call.actionTypes.connect === action.type) {
+      this.track('Call Attempt', {
+        callSettingMode: action.callSettingMode
       });
     }
   }
 
-  _logout(actionType) {
-    if (this._auth && this._auth.actionTypes.logout === actionType) {
-      this.track({
-        event: 'Logout',
-      });
+  _callConnected(action) {
+    if (this._call && this._call.actionTypes.connectSuccess === action.type) {
+      this.track('Outbound Call Connected');
     }
   }
 
-  _callAttempt(actionType) {
-    if (this._call && this._call.actionTypes.connect === actionType) {
-      this.track({
-        event: 'Call Attempt',
-      });
+  _webRTCRegistration(action) {
+    if (this._webphone && this._webphone.actionTypes.registered === action.type) {
+      this.track('WebRTC registration');
     }
   }
 
-  _callConnected(actionType) {
-    if (this._call && this._call.actionTypes.connectSuccess === actionType) {
-      this.track({
-        event: 'Outbound Call Connected',
-      });
+  _smsAttempt(action) {
+    if (this._messageSender && this._messageSender.actionTypes.send === action.type) {
+      this.track('SMS Attempt');
     }
   }
 
-  _webRTCRegistration(actionType) {
-    if (this._webphone && this._webphone.actionTypes.registered === actionType) {
-      this.track({
-        event: 'WebRTC registration',
-      });
+  _smsSent(action) {
+    if (this._messageSender && this._messageSender.actionTypes.sendOver === action.type) {
+      this.track('SMS Sent');
     }
   }
 
-  _smsAttempt(actionType) {
-    if (this._messageSender && this._messageSender.actionTypes.send === actionType) {
-      this.track({
-        event: 'SMS Attempt',
-      });
+  _logCall(action) {
+    if (this._adapter && this._adapter.actionTypes.createCallLog === action.type) {
+      this.track('Log Call');
     }
   }
 
-  _smsSent(actionType) {
-    if (this._messageSender && this._messageSender.actionTypes.sendOver === actionType) {
-      this.track({
-        event: 'SMS Sent',
-      });
+  _logSMS(action) {
+    if (this._adapter && this._adapter.actionTypes.createSMSLog === action.type) {
+      this.track('Log SMS');
     }
   }
 
-  _logCall(actionType) {
-    if (this._adapter && this._adapter.actionTypes.createCallLog === actionType) {
-      this.track({
-        event: 'Log Call'
-      });
+  _clickToDial(action) {
+    if (this._adapter && this._adapter.actionTypes.clickToDial === action.type) {
+      this.track('Click To Dial');
     }
   }
 
-  _logSMS(actionType) {
-    if (this._adapter && this._adapter.actionTypes.createSMSLog === actionType) {
-      this.track({
-        event: 'Log SMS'
-      });
+  _clickToSMS(action) {
+    if (this._adapter && this._adapter.actionTypes.clickToSMS === action.type) {
+      this.track('Click To SMS');
     }
   }
 
-  _clickToDial(actionType) {
-    if (this._adapter && this._adapter.actionTypes.clickToDial === actionType) {
-      this.track({
-        event: 'Click To Dial'
-      });
+  _viewEntity(action) {
+    if (this._adapter && this._adapter.actionTypes.viewEntity === action.type) {
+      this.track('View Entity Details');
     }
   }
 
-  _clickToSMS(actionType) {
-    if (this._adapter && this._adapter.actionTypes.clickToSMS === actionType) {
-      this.track({
-        event: 'Click To SMS'
-      });
+  _createEntity(action) {
+    if (this._adapter && this._adapter.actionTypes.createEntity === action.type) {
+      this.track('Add Entity');
     }
   }
 
-  _viewEntity(actionType) {
-    if (this._adapter && this._adapter.actionTypes.viewEntity === actionType) {
-      this.track({
-        event: 'View Entity Details'
-      });
+  _editCallLog(action) {
+    if (this._adapter && this._adapter.actionTypes.editCallLog === action.type) {
+      this.track('Edit Call Log');
     }
   }
 
-  _createEntity(actionType) {
-    if (this._adapter && this._adapter.actionTypes.createEntity === actionType) {
-      this.track({
-        event: 'Add Entity'
-      });
-    }
-  }
-
-  _editCallLog(actionType) {
-    if (this._adapter && this._adapter.actionTypes.editCallLog === actionType) {
-      this.track({
-        event: 'Edit Call Log'
-      });
-    }
-  }
-
-  _editSMSLog(actionType) {
-    if (this._adapter && this._adapter.actionTypes.editSMSLog === actionType) {
-      this.track({
-        event: 'Edit SMS Log'
-      });
+  _editSMSLog(action) {
+    if (this._adapter && this._adapter.actionTypes.editSMSLog === action.type) {
+      this.track('Edit SMS Log');
     }
   }
 
@@ -247,6 +218,9 @@ export default class Analytics extends RcModule {
 
   _getTrackTarget(path) {
     if (path) {
+      const routes = path.split('/');
+      const firstRoute = routes.length > 1 ? `/${routes[1]}` : '';
+
       const targets = [{
         eventPostfix: 'Dialer',
         router: '/',
@@ -258,7 +232,7 @@ export default class Analytics extends RcModule {
         router: '/messages',
       }, {
         eventPostfix: 'Conversation',
-        router: '/conversation/',
+        router: '/conversations',
       }, {
         eventPostfix: 'Call History',
         router: '/history',
@@ -266,7 +240,7 @@ export default class Analytics extends RcModule {
         eventPostfix: 'Settings',
         router: '/settings',
       }];
-      return targets.find(target => path.indexOf(target.router) !== -1);
+      return targets.find(target => firstRoute === target.router);
     }
     return undefined;
   }

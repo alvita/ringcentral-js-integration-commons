@@ -4,7 +4,6 @@ import getModuleStatusReducer from '../../lib/getModuleStatusReducer';
 
 export function getLastAction(types) {
   return (state = [], action) => {
-    console.debug('getLastAction', action);
     if (action.type === types.clear) {
       return [];
     }
