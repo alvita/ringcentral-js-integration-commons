@@ -63,8 +63,7 @@ export default class Analytics extends RcModule {
       brand: this._brandCode,
       ...properties,
     };
-    const result = global.analytics.track(event, trackProps);
-    console.log(result);
+    global.analytics.track(event, trackProps);
   }
 
   trackNavigation({ router, eventPostfix }) {
@@ -80,7 +79,6 @@ export default class Analytics extends RcModule {
   }
 
   async _onStateChange() {
-    console.debug('in analytics', this.lastActions);
     if (this.ready) {
       this.lastActions.forEach((action) => {
         [
@@ -99,6 +97,7 @@ export default class Analytics extends RcModule {
           '_createEntity',
           '_editCallLog',
           '_editSMSLog',
+          '_navigate',
         ].forEach((key) => {
           this[key](action.type);
         });
