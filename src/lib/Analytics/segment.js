@@ -36,21 +36,21 @@ export default function init() {
         'on'
       ];
 
-      analytics.factory = function(method) {
+      analytics.factory = function factory(method) {
         console.debug(method);
-        return function() {
-          const args = Array.prototype.slice.call(arguments);
+        return function pushMethod(...args) {
+          // const args = Array.prototype.slice.call(arguments);
           args.unshift(method);
           analytics.push(args);
           return analytics;
         };
       };
 
-      analytics.methods.forEach(function(method) {
+      analytics.methods.forEach((method) => {
         analytics[method] = analytics.factory(method);
       });
 
-      analytics.load = function(key) {
+      analytics.load = function load(key) {
         if (document !== undefined) {
           const script = document.createElement('script');
           script.type = 'text/javascript';
@@ -62,6 +62,7 @@ export default function init() {
           first.parentNode.insertBefore(script, first);
         }
       };
+
       analytics.SNIPPET_VERSION = '4.0.0';
     }
   }
