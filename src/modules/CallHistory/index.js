@@ -216,7 +216,11 @@ export default class CallHistory extends RcModule {
         const endedCalls = (this._lastProcessedMonitorCalls || [])
           .filter(call => (
             !monitorCalls.find(currentCall => call.sessionId === currentCall.sessionId)
-          ));
+          ))
+          .map((call) => {
+            call.result = 'Disconnected';
+            return call;
+          });
         this._lastProcessedMonitorCalls = monitorCalls;
         return endedCalls;
       }
