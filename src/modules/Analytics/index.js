@@ -205,7 +205,7 @@ export default class Analytics extends RcModule {
   }
 
   _navigate(action) {
-    if (this._router && this._router.locationChange === action.type) {
+    if (this._router && this._router.actionTypes.locationChange === action.type) {
       const path = action.payload && action.payload.pathname;
       const target = this._getTrackTarget(path);
       if (target) {
