@@ -34,6 +34,22 @@ export function getToNumberReducer(types) {
   };
 }
 
+export function getToNumberEntityReducer(types) {
+  return (state = {}, { type, data }) => {
+    switch (type) {
+      case types.toNumberMatched:
+        return data;
+      case types.connectError:
+        return state;
+      case types.resetSuccess:
+      case types.connectSuccess:
+        return {};
+      default:
+        return state;
+    }
+  };
+}
+
 export function getLastCallNumberReducer(types) {
   return (state = null, { type, number }) => {
     switch (type) {
@@ -50,5 +66,6 @@ export default function getCallReducer(types) {
     status: getModuleStatusReducer(types),
     callStatus: getCallStatusReducer(types),
     toNumber: getToNumberReducer(types),
+    toNumberEntity: getToNumberEntityReducer(types),
   });
 }

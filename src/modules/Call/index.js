@@ -112,6 +112,14 @@ export default class Call extends RcModule {
     });
   }
 
+  // TODO: move to input related module
+  onToNumberMatch({ entityId, phoneNumber }) {
+    this.store.dispatch({
+      type: this.actionTypes.toNumberMatched,
+      data: { entityId, phoneNumber },
+    });
+  }
+
   onCall = async () => {
     if (this.callStatus === callStatus.idle) {
       // last number check
@@ -267,5 +275,9 @@ export default class Call extends RcModule {
 
   get toNumber() {
     return this.state.toNumber;
+  }
+
+  get toNumberEntity() {
+    return this.state.toNumberEntity;
   }
 }
