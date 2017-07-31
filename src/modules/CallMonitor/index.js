@@ -295,7 +295,7 @@ export default class CallMonitor extends RcModule {
               entities = this._removeMatched(index, entities);
               this._setMatchedData({
                 sessionId: call.sessionId,
-                toEntity,
+                toEntityId: toEntity.id,
               });
               return true;
             }

@@ -3,9 +3,9 @@ import getModuleStatusReducer from '../../lib/getModuleStatusReducer';
 
 
 export function getCallMatchedReducer(types) {
-  return (state = {}, { type, sessionId, toEntity }) => {
+  return (state = {}, { type, sessionId, toEntityId }) => {
     if (type === types.setData) {
-      state[sessionId] = toEntity;
+      state[sessionId] = toEntityId;
       return { ...state };
     }
     return state;
