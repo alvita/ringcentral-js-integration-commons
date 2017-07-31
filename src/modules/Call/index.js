@@ -112,11 +112,19 @@ export default class Call extends RcModule {
     });
   }
 
-  // TODO: move to input related module
-  onToNumberMatch({ entityId, phoneNumber }) {
+  // save the click to dial entity, only when call took place
+  onToNumberMatch({ entityId, startTime }) {
+    if (this.callStatus === callStatus.idle) {
+      this.store.dispatch({
+        type: this.actionTypes.toNumberMatched,
+        data: { entityId, startTime },
+      });
+    }
+  }
+
+  cleanToNumberEntities() {
     this.store.dispatch({
-      type: this.actionTypes.toNumberMatched,
-      data: { entityId, phoneNumber },
+      type: this.actionTypes.cleanToNumberEntities,
     });
   }
 
@@ -253,6 +261,7 @@ export default class Call extends RcModule {
     }
   }
 
+
   get status() {
     return this.state.status;
   }
@@ -277,7 +286,7 @@ export default class Call extends RcModule {
     return this.state.toNumber;
   }
 
-  get toNumberEntity() {
-    return this.state.toNumberEntity;
+  get toNumberEntities() {
+    return this.state.toNumberEntities;
   }
 }
