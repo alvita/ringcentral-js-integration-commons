@@ -165,10 +165,7 @@ export default class CallLogger extends LoggerBase {
             toNumberEntity === match.id
           );
         }
-        // const toEntity = (toMatches &&
-        //   toMatches.length === 1 &&
-        //   toMatches[0]) ||
-        //   null;
+
         await this._autoLogCall({
           call,
           fromEntity,
