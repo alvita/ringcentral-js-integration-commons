@@ -12,4 +12,5 @@ export default new Enum([
   'addToNumber',
   'removeToNumber',
   'updateMessageText',
+  'toNumberMatched',
 ], 'composeText');

@@ -16,6 +16,7 @@ export default class ComposeText extends RcModule {
     storage,
     messageSender,
     numberValidate,
+    contactSearch,
     ...options
   }) {
     super({
@@ -31,6 +32,8 @@ export default class ComposeText extends RcModule {
     this._cacheReducer = getCacheReducer(this.actionTypes);
     this._messageSender = messageSender;
     this._numberValidate = numberValidate;
+    this._contactSearch = contactSearch;
+    this._lastToNumberEntity = '';
     storage.registerReducer({ key: this._storageKey, reducer: this._cacheReducer });
   }
 
@@ -49,6 +52,23 @@ export default class ComposeText extends RcModule {
         this.clean();
       }
       this._initSenderNumber();
+    } else if (
+      this.ready &&
+      (!!this._contactSearch &&
+        this._contactSearch.ready &&
+        this._contactSearch.searchResult.length > 0) &&
+      this.toNumberEntity !== this._lastToNumberEntity
+    ) {
+      this._lastToNumberEntity = this.toNumberEntity;
+      const recipient = this._contactSearch.searchResult.find(
+        item => item.id === this.toNumberEntity
+      );
+      if (recipient) {
+        this.toNumbers.map(toNumber =>
+          this.removeToNumber(toNumber)
+        );
+        this.addToRecipients(recipient);
+      }
     } else if (
       this._shouldReset()
     ) {
@@ -151,6 +171,22 @@ export default class ComposeText extends RcModule {
   }
 
   @proxify
+  async onToNumberMatch({ entityId }) {
+    this.store.dispatch({
+      type: this.actionTypes.toNumberMatched,
+      entityId,
+    });
+  }
+
+  @proxify
+  async addToRecipients(recipient, shouldClean = true) {
+    await this.addToNumber(recipient);
+    if (shouldClean) {
+      await this.cleanTypingToNumber();
+    }
+  }
+
+  @proxify
   async cleanTypingToNumber() {
     this.store.dispatch({
       type: this.actionTypes.cleanTypingToNumber,
@@ -220,6 +256,10 @@ export default class ComposeText extends RcModule {
 
   get toNumbers() {
     return this.state.toNumbers;
+  }
+
+  get toNumberEntity() {
+    return this.state.toNumberEntity;
   }
 
   get messageText() {
