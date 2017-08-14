@@ -2,7 +2,7 @@ import RcModule from '../../lib/RcModule';
 import isBlank from '../../lib/isBlank';
 import moduleStatuses from '../../enums/moduleStatuses';
 
-import composeTextActionTypes from './composeTextActionTypes';
+import composeTextActionTypes from './actionTypes';
 import getComposeTextReducer from './getComposeTextReducer';
 import getCacheReducer from './getCacheReducer';
 
@@ -53,22 +53,9 @@ export default class ComposeText extends RcModule {
       }
       this._initSenderNumber();
     } else if (
-      this.ready &&
-      (!!this._contactSearch &&
-        this._contactSearch.ready &&
-        this._contactSearch.searchResult.length > 0) &&
-      this.toNumberEntity !== this._lastToNumberEntity
+      this._shouldHandleRecipient()
     ) {
-      this._lastToNumberEntity = this.toNumberEntity;
-      const recipient = this._contactSearch.searchResult.find(
-        item => item.id === this.toNumberEntity
-      );
-      if (recipient) {
-        this.toNumbers.map(toNumber =>
-          this.removeToNumber(toNumber)
-        );
-        this.addToRecipients(recipient);
-      }
+      this._handleRecipient();
     } else if (
       this._shouldReset()
     ) {
@@ -93,6 +80,16 @@ export default class ComposeText extends RcModule {
     );
   }
 
+  _shouldHandleRecipient() {
+    return (
+      this.ready &&
+      (!!this._contactSearch &&
+        this._contactSearch.ready &&
+        this._contactSearch.searchResult.length > 0) &&
+      this.toNumberEntity !== this._lastToNumberEntity
+    );
+  }
+
   _resetModuleStatus() {
     this.store.dispatch({
       type: this.actionTypes.resetSuccess,
@@ -108,6 +105,19 @@ export default class ComposeText extends RcModule {
       defaultPhoneNumber = this._messageSender.senderNumbersList[0];
     }
     this.updateSenderNumber(defaultPhoneNumber);
+  }
+
+  _handleRecipient() {
+    this._lastToNumberEntity = this.toNumberEntity;
+    const recipient = this._contactSearch.searchResult.find(
+      item => item.id === this.toNumberEntity
+    );
+    if (recipient) {
+      this.toNumbers.map(toNumber =>
+        this.removeToNumber(toNumber)
+      );
+      this.addToRecipients(recipient);
+    }
   }
 
   _alertWarning(message) {
